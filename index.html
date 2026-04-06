@@ -1460,6 +1460,18 @@
                     e.target.dataset.wasNumber = '1';
                 }
             }, true);
+            // Allow pasting math expressions into number fields
+            document.addEventListener('paste', function(e) {
+                if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
+                    const text = (e.clipboardData || window.clipboardData).getData('text');
+                    if (text && /[+\-*/]/.test(text)) {
+                        e.preventDefault();
+                        e.target.type = 'text';
+                        e.target.dataset.wasNumber = '1';
+                        e.target.value = text;
+                    }
+                }
+            }, true);
             // On blur: evaluate, store expression, show result
             document.addEventListener('blur', function(e) {
                 if (e.target.tagName === 'INPUT') {
