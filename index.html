@@ -495,7 +495,7 @@
 
         .leg-form-row {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
             gap: 0.75rem;
             margin-bottom: 0.75rem;
         }
@@ -722,7 +722,7 @@
         @media (max-width: 768px) {
             .summary-grid { grid-template-columns: 1fr 1fr; }
             .trip-form-row { grid-template-columns: 1fr 1fr; }
-            .leg-form-row { grid-template-columns: 1fr; }
+            .leg-form-row { grid-template-columns: 1fr 1fr; }
             .trip-card-header .trip-right { gap: 0.5rem; }
             header { padding: 1.5rem 1rem; }
             header h1 { font-size: 1.4rem; }
@@ -915,6 +915,7 @@
         let pendingLegTripId = null;
         let fileHandle = null; // for File System Access API
         let originalHtmlSource = null; // captured at load for reliable save
+        let isDirty = false; // tracks unsaved changes since last Save File
 
         const yearSelect = document.getElementById('yearSelect');
         const annualBudgetInput = document.getElementById('annualBudget');
@@ -934,6 +935,9 @@
             loadData();
             render();
             setupMathInputs();
+            window.addEventListener('beforeunload', function(e) {
+                if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+            });
             annualBudgetInput.addEventListener('input', () => {
                 data.annualBudget = parseFloat(annualBudgetInput.value) || 0;
                 saveData();
@@ -1035,10 +1039,9 @@
 
         function saveData() {
             allYears[currentYear] = data;
-            // Write to localStorage as hot cache
             localStorage.setItem(storageKey(), JSON.stringify(data));
-            // Update embedded data tag in DOM (persisted on Save File)
             document.getElementById('embedded-data').textContent = JSON.stringify(allYears);
+            isDirty = true;
         }
 
         // Save the entire HTML file with embedded data
@@ -1098,6 +1101,7 @@
         };
 
         function showSaveConfirmation() {
+            isDirty = false;
             const btn = document.querySelector('[onclick="saveToFile()"]');
             const orig = btn.textContent;
             btn.textContent = '✅ Saved!';
@@ -1308,8 +1312,11 @@
             }).join('');
         }
 
-        function buildExpenseTable(idPrefix, expenses) {
-            let html = '<table class="expense-table"><thead><tr><th>Category</th><th>Amount</th></tr></thead><tbody>';
+        function buildExpenseTable(idPrefix, expenses, currency, rate) {
+            const hasCur = currency && rate > 0;
+            let html = '<table class="expense-table"><thead><tr><th>Category</th><th>Amount (USD)</th>' +
+                (hasCur ? '<th>' + esc(currency) + '</th>' : '') +
+                '</tr></thead><tbody>';
             let tAct = 0;
             CATEGORIES.forEach(c => {
                 const exp = (expenses || {})[c.key] || {};
@@ -1321,9 +1328,13 @@
                     '<td><input type="number" value="' + (act || '') + '" placeholder="0.00" step="0.01" min="0"' +
                     (expr ? ' data-expr="' + esc(expr) + '"' : '') +
                     ' data-exp-key="' + expKey + '"' +
-                    ' oninput="updateExp(\'' + idPrefix + '\',\'' + c.key + '\',\'actual\',this.value)"></td></tr>';
+                    ' oninput="updateExp(\'' + idPrefix + '\',\'' + c.key + '\',\'actual\',this.value)"></td>' +
+                    (hasCur ? '<td style="color:var(--text-dim);font-size:0.85rem;">' + (act ? (act * rate).toLocaleString('en-US', {maximumFractionDigits: 0}) : '') + '</td>' : '') +
+                    '</tr>';
             });
-            html += '</tbody><tfoot><tr><td>Subtotal</td><td style="text-align:right;">' + fmt(tAct) + '</td></tr></tfoot></table>';
+            html += '</tbody><tfoot><tr><td>Subtotal</td><td style="text-align:right;">' + fmt(tAct) + '</td>' +
+                (hasCur ? '<td style="text-align:right;color:var(--text-dim);font-size:0.85rem;">' + (tAct * rate).toLocaleString('en-US', {maximumFractionDigits: 0}) + '</td>' : '') +
+                '</tr></tfoot></table>';
             return html;
         }
 
@@ -1371,8 +1382,10 @@
                                 '<div class="form-group"><label>Destination</label><input type="text" value="' + esc(leg.destination) + '" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'destination\',this.value)"></div>' +
                                 '<div class="form-group"><label>Start Date</label><input type="date" value="' + (leg.startDate || '') + '" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'startDate\',this.value)"></div>' +
                                 '<div class="form-group"><label>End Date</label><input type="date" value="' + (leg.endDate || '') + '" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'endDate\',this.value)"></div>' +
+                                '<div class="form-group"><label>Currency</label><input type="text" value="' + esc(leg.currency || '') + '" placeholder="e.g., EUR" style="text-transform:uppercase;" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'currency\',this.value.toUpperCase())"></div>' +
+                                '<div class="form-group"><label>Rate (1 USD =)</label><input type="number" value="' + (leg.exchangeRate || '') + '" placeholder="e.g., 0.92" step="any" min="0" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'exchangeRate\',parseFloat(this.value)||0)"></div>' +
                             '</div>' +
-                            buildExpenseTable('leg:' + trip.id + ':' + leg.id, leg.expenses) +
+                            buildExpenseTable('leg:' + trip.id + ':' + leg.id, leg.expenses, leg.currency, leg.exchangeRate) +
                             '<div class="notes-group"><label>📝 Stop Notes</label><textarea placeholder="Details for this stop..." onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'notes\',this.value)">' + esc(leg.notes || '') + '</textarea></div>' +
                             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;">' +
                                 '<div style="display:flex;gap:0.35rem;">' +
