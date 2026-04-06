@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Budget Planner</title>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a1628;
+            --surface: #0f2035;
+            --surface2: #162a42;
+            --surface3: #1c3350;
+            --border: #243d5c;
+            --text: #f0ece4;
+            --text-dim: #8a9bb5;
+            --accent: #d4a853;
+            --accent-light: #e8c97a;
+            --green: #4ecdc4;
+            --red: #e07a5f;
+            --orange: #f0b429;
+            --blue: #5fa8d3;
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a3a5c, #0f2035);
+            padding: 2rem;
+            text-align: center;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        header h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+        header p { color: rgba(255,255,255,0.8); font-size: 0.95rem; margin-top: 0.3rem; }
+
+        .header-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .header-controls select {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .header-controls select option { background: var(--surface); color: var(--text); }
+
+        .header-controls button {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .header-controls button:hover { background: rgba(255,255,255,0.25); }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h2 .icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        /* --- Dashboard --- */
+        .budget-input-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .budget-input-row label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .budget-input-row input {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            color: var(--text);
+            font-size: 1.1rem;
+            font-weight: 600;
+            width: 180px;
+            transition: border-color 0.2s;
+        }
+
+        .budget-input-row input:focus { outline: none; border-color: var(--accent); }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-stat {
+            background: var(--surface2);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .summary-stat .label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-stat .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-top: 0.2rem;
+        }
+
+        .summary-stat .sub {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.1rem;
+        }
+
+        .positive { color: var(--green); }
+        .negative { color: var(--red); }
+        .neutral { color: var(--accent-light); }
+
+        .budget-progress { margin-bottom: 1.5rem; }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .progress-labels .left { color: var(--text-dim); }
+        .progress-labels .right { font-weight: 600; }
+
+        .progress-bar-outer {
+            height: 22px;
+            background: var(--surface2);
+            border-radius: 11px;
+            overflow: hidden;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            border-radius: 11px;
+            transition: width 0.5s ease;
+            min-width: 2px;
+        }
+
+        .progress-green { background: linear-gradient(90deg, var(--green), #7edcd5); }
+        .progress-orange { background: linear-gradient(90deg, var(--orange), #f5ce5c); }
+        .progress-red { background: linear-gradient(90deg, var(--red), #e8a090); }
+
+        .breakdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .breakdown-label {
+            min-width: 120px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        .breakdown-bar-bg {
+            flex: 1;
+            height: 22px;
+            background: var(--surface2);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .breakdown-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.5s ease;
+            min-width: 2px;
+        }
+
+        .breakdown-amount {
+            min-width: 90px;
+            text-align: right;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .bar-flights { background: var(--blue); }
+        .bar-transfers { background: #7ec8e3; }
+        .bar-transport { background: #4ecdc4; }
+        .bar-accommodation { background: var(--accent); }
+        .bar-food { background: #81b29a; }
+        .bar-activities { background: var(--orange); }
+        .bar-travel-prep { background: #c17fa0; }
+        .bar-extras { background: var(--red); }
+
+        /* --- Trip Cards --- */
+        .trips-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .trips-header h2 { margin-bottom: 0; }
+
+        .btn-add-trip, .btn-add-leg {
+            background: rgba(212, 168, 83, 0.1);
+            color: var(--accent-light);
+            border: 1px dashed var(--accent);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-add-trip:hover, .btn-add-leg:hover { background: rgba(212, 168, 83, 0.2); }
+        .btn-add-leg { width: 100%; margin-top: 0.75rem; }
+
+        .trips-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .trip-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .trip-card:hover { border-color: var(--accent); }
+
+        .trip-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .trip-card-header .trip-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .trip-card-header .trip-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(212,168,83,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .trip-card-header .trip-details { min-width: 0; }
+        .trip-card-header .trip-name { font-weight: 600; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .trip-card-header .trip-meta { font-size: 0.8rem; color: var(--text-dim); }
+        .trip-card-header .trip-route { font-size: 0.78rem; color: var(--accent-light); margin-top: 1px; }
+
+        .trip-card-header .trip-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .trip-amounts { text-align: right; }
+        .trip-amounts .act { font-size: 1rem; font-weight: 600; }
+
+        .badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-planned { background: rgba(95,168,211,0.2); color: var(--blue); }
+        .badge-booked { background: rgba(212,168,83,0.2); color: var(--accent); }
+        .badge-completed { background: rgba(78,205,196,0.2); color: var(--green); }
+
+        .chevron {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            transition: transform 0.3s;
+        }
+
+        .trip-card.expanded .chevron { transform: rotate(180deg); }
+
+        .trip-card-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .trip-card.expanded .trip-card-body { max-height: 5000px; }
+
+        .trip-card-body-inner { padding: 0 1.25rem 1.25rem; }
+
+        .trip-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto auto auto;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.55rem 0.65rem;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        .trip-card-body input, .trip-card-body select { background: var(--surface); }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+        input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+        /* Section headers inside trip card */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 1.25rem 0 0.5rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-header h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .section-header .section-total {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-light);
+        }
+
+        /* Leg card */
+        .leg-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+
+        .leg-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .leg-header .leg-info {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .leg-number {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .leg-dest { font-weight: 600; font-size: 0.95rem; }
+        .leg-dates { font-size: 0.78rem; color: var(--text-dim); margin-left: 0.5rem; }
+
+        .leg-header .leg-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .leg-total { font-size: 0.9rem; font-weight: 600; }
+
+        .leg-chevron {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            transition: transform 0.3s;
+        }
+
+        .leg-card.expanded .leg-chevron { transform: rotate(180deg); }
+
+        .leg-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease;
+        }
+
+        .leg-card.expanded .leg-body { max-height: 1200px; }
+        .leg-body-inner { padding: 0 1rem 1rem; }
+
+        .leg-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Expense table */
+        .expense-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+        }
+
+        .expense-table th {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            text-align: left;
+            padding: 0.5rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .expense-table th:nth-child(n+2) { text-align: right; }
+
+        .expense-table td {
+            padding: 0.4rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .expense-table td:first-child {
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .expense-table td:nth-child(n+2) { text-align: right; }
+
+        .expense-table input[type="number"] {
+            width: 110px;
+            text-align: right;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .expense-table .diff-positive { color: var(--green); font-weight: 600; font-size: 0.85rem; }
+        .expense-table .diff-negative { color: var(--red); font-weight: 600; font-size: 0.85rem; }
+        .expense-table .diff-zero { color: var(--text-dim); font-size: 0.85rem; }
+
+        .expense-table tfoot td {
+            border-top: 2px solid var(--border);
+            border-bottom: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding-top: 0.75rem;
+        }
+
+        .cat-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .cat-flights { background: rgba(95,168,211,0.2); }
+        .cat-transfers { background: rgba(126,200,227,0.2); }
+        .cat-transport { background: rgba(78,205,196,0.2); }
+        .cat-accommodation { background: rgba(212,168,83,0.2); }
+        .cat-food { background: rgba(129,178,154,0.2); }
+        .cat-activities { background: rgba(240,180,41,0.2); }
+        .cat-travel-prep { background: rgba(193,127,160,0.2); }
+        .cat-extras { background: rgba(224,122,95,0.2); }
+
+        .trip-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn-delete, .btn-delete-leg {
+            background: rgba(224, 122, 95, 0.15);
+            color: var(--red);
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-delete:hover, .btn-delete-leg:hover { background: rgba(224, 122, 95, 0.3); }
+        .btn-delete-leg { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+
+        /* Notes */
+        .notes-group { margin-top: 0.75rem; }
+        .notes-group label { display: block; margin-bottom: 0.3rem; }
+        .notes-group textarea {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.55rem 0.65rem;
+            color: var(--text);
+            font-size: 0.85rem;
+            font-family: inherit;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 60px;
+            transition: border-color 0.2s;
+        }
+        .notes-group textarea:focus { outline: none; border-color: var(--accent); }
+        .notes-group textarea::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+        /* Math hint */
+        .math-hint {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            opacity: 0.6;
+            margin-top: 0.5rem;
+        }
+
+        /* Grand total bar */
+        .grand-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-top: 1rem;
+        }
+
+        .grand-total .gt-label { font-size: 0.95rem; font-weight: 700; }
+
+        .grand-total .gt-values {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .grand-total .gt-values span { font-weight: 600; }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-dim);
+        }
+
+        .empty-state .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 0.75rem;
+            opacity: 0.5;
+        }
+
+        .empty-state p { font-size: 0.95rem; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            width: 480px;
+            max-width: 95vw;
+        }
+
+        .modal h3 { font-size: 1.1rem; margin-bottom: 1rem; }
+        .modal .form-group { margin-bottom: 0.75rem; }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1.25rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.25rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover { background: #c09540; }
+
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 1.25rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover { background: var(--border); }
+
+        @media (max-width: 768px) {
+            .summary-grid { grid-template-columns: 1fr 1fr; }
+            .trip-form-row { grid-template-columns: 1fr 1fr; }
+            .leg-form-row { grid-template-columns: 1fr; }
+            .trip-card-header .trip-right { gap: 0.5rem; }
+            header { padding: 1.5rem 1rem; }
+            header h1 { font-size: 1.4rem; }
+            .expense-table input[type="number"] { width: 85px; }
+        }
+
+        @media (max-width: 480px) {
+            .summary-grid { grid-template-columns: 1fr; }
+            .trip-form-row { grid-template-columns: 1fr; }
+            .budget-input-row { flex-direction: column; align-items: stretch; }
+            .budget-input-row input { width: 100%; }
+            .grand-total .gt-values { flex-direction: column; gap: 0.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>✈️ Travel Budget Planner</h1>
+        <p>Plan, track, and manage your travel expenses</p>
+        <div class="header-controls">
+            <select id="yearSelect"></select>
+            <button onclick="exportToExcel()">📊 Export to Excel</button>
+            <button onclick="saveToFile()" title="Save data into this HTML file so it travels with it">💾 Save File</button>
+            <button onclick="clearData()" title="Clear all data for the current year">🗑️ Clear Year</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card" id="dashboardCard">
+            <h2><span class="icon" style="background: rgba(212,168,83,0.2);">📋</span> Annual Dashboard</h2>
+            <div class="budget-input-row">
+                <label for="annualBudget">Annual Travel Budget</label>
+                <input type="number" id="annualBudget" placeholder="0.00" step="100" min="0">
+            </div>
+            <div class="summary-grid">
+                <div class="summary-stat">
+                    <div class="label">Total Budget</div>
+                    <div class="value neutral" id="statBudget">$0</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="label">Total Spent</div>
+                    <div class="value" id="statActual">$0</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="label">Points / Credits</div>
+                    <div class="value" id="statPoints" style="color: var(--orange);">$0</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="label">Out-of-Pocket</div>
+                    <div class="value positive" id="statOOP">$0</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="label">Remaining</div>
+                    <div class="value positive" id="statRemaining">$0</div>
+                    <div class="sub" id="statRemainingPct"></div>
+                </div>
+            </div>
+            <div class="summary-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 1rem;">
+                <div class="summary-stat">
+                    <div class="label">Trips</div>
+                    <div class="value" id="statTrips" style="color: var(--accent-light);">0</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="label">Travel Days</div>
+                    <div class="value" id="statDays" style="color: var(--accent-light);">0</div>
+                </div>
+            </div>
+            <div class="budget-progress">
+                <div class="progress-labels">
+                    <span class="left">Budget Used</span>
+                    <span class="right" id="progressPct">0%</span>
+                </div>
+                <div class="progress-bar-outer">
+                    <div class="progress-bar-inner progress-green" id="progressBar" style="width: 0%;"></div>
+                </div>
+            </div>
+            <h2 style="margin-top: 0.5rem;"><span class="icon" style="background: rgba(95,168,211,0.2);">📊</span> Spending by Category</h2>
+            <div id="categoryBreakdown"></div>
+            <div class="notes-group" style="margin-top: 1.25rem;">
+                <label>📝 Year Notes</label>
+                <textarea id="yearNotes" placeholder="General notes for this travel year..." onchange="updateYearNotes(this.value)"></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="trips-header">
+                <h2 style="margin-bottom:0;"><span class="icon" style="background: rgba(78,205,196,0.2);">🌍</span> Trips</h2>
+                <button class="btn-add-trip" onclick="openNewTripModal()">+ Add Trip</button>
+            </div>
+            <div id="tripsContainer">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">🗺️</div>
+                    <p>No trips yet. Click "Add Trip" to start planning!</p>
+                </div>
+                <div class="trips-grid" id="tripsGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Trip Modal -->
+    <div class="modal-overlay" id="tripModal">
+        <div class="modal">
+            <h3>✈️ Add New Trip</h3>
+            <div class="form-group">
+                <label for="modalTripName">Trip Name</label>
+                <input type="text" id="modalTripName" placeholder="e.g., Summer in Europe">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                    <label for="modalStartLoc">Starting From</label>
+                    <input type="text" id="modalStartLoc" placeholder="e.g., Portland, OR">
+                </div>
+                <div class="form-group">
+                    <label for="modalFirstLeg">First Destination</label>
+                    <input type="text" id="modalFirstLeg" placeholder="e.g., Paris, France">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                    <label for="modalStartDate">Start Date</label>
+                    <input type="date" id="modalStartDate">
+                </div>
+                <div class="form-group">
+                    <label for="modalEndDate">End Date</label>
+                    <input type="date" id="modalEndDate">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="modalStatus">Status</label>
+                <select id="modalStatus">
+                    <option value="planned">Planned</option>
+                    <option value="booked">Booked</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeTripModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveNewTrip()">Add Trip</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Leg Modal -->
+    <div class="modal-overlay" id="legModal">
+        <div class="modal">
+            <h3>📍 Add New Stop</h3>
+            <div class="form-group">
+                <label for="modalLegDest">Destination</label>
+                <input type="text" id="modalLegDest" placeholder="e.g., Rome, Italy">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                    <label for="modalLegStart">Start Date</label>
+                    <input type="date" id="modalLegStart">
+                </div>
+                <div class="form-group">
+                    <label for="modalLegEnd">End Date</label>
+                    <input type="date" id="modalLegEnd">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeLegModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveNewLeg()">Add Stop</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Embedded data store: all years persisted inside the file -->
+    <script id="embedded-data" type="application/json">{}</script>
+
+    <script>
+    (() => {
+        'use strict';
+
+        const CATEGORIES = [
+            { key: 'flights', label: 'Flights', emoji: '✈️', cssClass: 'flights', barClass: 'bar-flights' },
+            { key: 'transfers', label: 'Airport Transfers', emoji: '🚕', cssClass: 'transfers', barClass: 'bar-transfers' },
+            { key: 'transport', label: 'Transportation', emoji: '🚆', cssClass: 'transport', barClass: 'bar-transport' },
+            { key: 'accommodation', label: 'Accommodation', emoji: '🏨', cssClass: 'accommodation', barClass: 'bar-accommodation' },
+            { key: 'food', label: 'Food', emoji: '🍽️', cssClass: 'food', barClass: 'bar-food' },
+            { key: 'activities', label: 'Activities', emoji: '🎯', cssClass: 'activities', barClass: 'bar-activities' },
+            { key: 'travelPrep', label: 'Travel Prep', emoji: '🛂', cssClass: 'travel-prep', barClass: 'bar-travel-prep' },
+            { key: 'extras', label: 'Extras', emoji: '🛍️', cssClass: 'extras', barClass: 'bar-extras' },
+        ];
+
+        const STORAGE_PREFIX = 'travelBudget_';
+        let currentYear = new Date().getFullYear();
+        let data = null;
+        let allYears = {}; // all years' data, keyed by year
+        let pendingLegTripId = null;
+        let fileHandle = null; // for File System Access API
+        let originalHtmlSource = null; // captured at load for reliable save
+
+        const yearSelect = document.getElementById('yearSelect');
+        const annualBudgetInput = document.getElementById('annualBudget');
+        const tripsGrid = document.getElementById('tripsGrid');
+        const emptyState = document.getElementById('emptyState');
+
+        function init() {
+            // Capture original HTML source for reliable Save File
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', location.href, false); // synchronous
+                xhr.send();
+                if (xhr.status === 0 || xhr.status === 200) originalHtmlSource = xhr.responseText;
+            } catch(e) {}
+            loadAllYears();
+            populateYearSelect();
+            loadData();
+            render();
+            setupMathInputs();
+            annualBudgetInput.addEventListener('input', () => {
+                data.annualBudget = parseFloat(annualBudgetInput.value) || 0;
+                saveData();
+                renderDashboard();
+            });
+            yearSelect.addEventListener('change', () => {
+                if (yearSelect.value === '__add__') {
+                    const input = prompt('Enter a year:');
+                    const yr = parseInt(input);
+                    if (!yr || yr < 2000 || yr > 2100) {
+                        yearSelect.value = currentYear;
+                        return;
+                    }
+                    currentYear = yr;
+                    loadData();
+                    saveData();
+                    populateYearSelect();
+                    render();
+                    return;
+                }
+                currentYear = parseInt(yearSelect.value);
+                loadData();
+                render();
+            });
+        }
+
+        function populateYearSelect() {
+            yearSelect.innerHTML = '';
+            const thisYear = new Date().getFullYear();
+            const years = new Set();
+            for (let y = 2020; y <= thisYear + 2; y++) years.add(y);
+            // Include any year that has saved data
+            Object.keys(allYears).forEach(y => years.add(parseInt(y)));
+            const sorted = [...years].sort((a, b) => a - b);
+            sorted.forEach(y => {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                if (y === currentYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            });
+            // "Add year" option
+            const addOpt = document.createElement('option');
+            addOpt.value = '__add__';
+            addOpt.textContent = '+ Add Year';
+            yearSelect.appendChild(addOpt);
+        }
+
+        function storageKey() { return STORAGE_PREFIX + currentYear; }
+
+        // Load all years from embedded data tag (primary) or localStorage (fallback)
+        function loadAllYears() {
+            const el = document.getElementById('embedded-data');
+            let embedded = {};
+            try { embedded = JSON.parse(el.textContent || '{}'); } catch(e) {}
+            // Merge: embedded data wins, but also pull any localStorage-only years
+            allYears = { ...embedded };
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith(STORAGE_PREFIX)) {
+                    const yr = k.replace(STORAGE_PREFIX, '');
+                    if (!allYears[yr]) {
+                        try { allYears[yr] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
+                    }
+                }
+            }
+        }
+
+        function loadData() {
+            data = allYears[currentYear] || null;
+            if (data) {
+                // Migrate old single-destination format
+                data.trips.forEach(trip => {
+                    if (!trip.legs) {
+                        const oldExp = trip.expenses || {};
+                        trip.sharedExpenses = emptyExpenses();
+                        if (trip.destination) {
+                            trip.legs = [{
+                                id: 'leg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                                destination: trip.destination,
+                                startDate: trip.startDate || '',
+                                endDate: trip.endDate || '',
+                                expenses: oldExp
+                            }];
+                            delete trip.destination;
+                        } else {
+                            trip.legs = [];
+                        }
+                        delete trip.expenses;
+                    }
+                });
+            } else {
+                data = { annualBudget: 0, yearNotes: '', trips: [] };
+            }
+            allYears[currentYear] = data;
+            annualBudgetInput.value = data.annualBudget || '';
+            document.getElementById('yearNotes').value = data.yearNotes || '';
+        }
+
+        function saveData() {
+            allYears[currentYear] = data;
+            // Write to localStorage as hot cache
+            localStorage.setItem(storageKey(), JSON.stringify(data));
+            // Update embedded data tag in DOM (persisted on Save File)
+            document.getElementById('embedded-data').textContent = JSON.stringify(allYears);
+        }
+
+        // Save the entire HTML file with embedded data
+        window.saveToFile = async function() {
+            const dataJson = JSON.stringify(allYears);
+            const marker = /(<script id="embedded-data" type="application\/json">)([\s\S]*?)(<\/script>)/;
+
+            let html;
+            if (originalHtmlSource && marker.test(originalHtmlSource)) {
+                html = originalHtmlSource.replace(marker, '$1' + dataJson.replace(/\$/g, '$$$$') + '$3');
+            } else {
+                // Fallback: try fetch
+                try {
+                    const resp = await fetch(location.href);
+                    const fetched = await resp.text();
+                    if (marker.test(fetched)) {
+                        html = fetched.replace(marker, '$1' + dataJson.replace(/\$/g, '$$$$') + '$3');
+                    }
+                } catch(e) {}
+                // Last resort: DOM serialization
+                if (!html) {
+                    document.getElementById('embedded-data').textContent = dataJson;
+                    html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+                }
+            }
+
+            // Update captured source for subsequent saves
+            originalHtmlSource = html;
+
+            // Try File System Access API (Chrome/Edge) for in-place save
+            if (window.showSaveFilePicker) {
+                try {
+                    if (!fileHandle) {
+                        fileHandle = await window.showSaveFilePicker({
+                            suggestedName: 'Travel Budget Planner.html',
+                            types: [{ description: 'HTML File', accept: { 'text/html': ['.html'] } }]
+                        });
+                    }
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(html);
+                    await writable.close();
+                    showSaveConfirmation();
+                    return;
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+            // Fallback: download
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Travel Budget Planner.html';
+            a.click();
+            URL.revokeObjectURL(url);
+            showSaveConfirmation();
+        };
+
+        function showSaveConfirmation() {
+            const btn = document.querySelector('[onclick="saveToFile()"]');
+            const orig = btn.textContent;
+            btn.textContent = '✅ Saved!';
+            btn.style.background = 'rgba(78,205,196,0.3)';
+            setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2000);
+        }
+
+        // --- Helpers ---
+        function emptyExpenses() {
+            const e = {};
+            CATEGORIES.forEach(c => e[c.key] = { actual: 0 });
+            return e;
+        }
+
+        function expenseTotal(expenses, type) {
+            return CATEGORIES.reduce((sum, c) => {
+                const exp = (expenses || {})[c.key] || {};
+                return sum + (parseFloat(exp[type]) || 0);
+            }, 0);
+        }
+
+        function fullTripTotal(trip, type) {
+            let total = expenseTotal(trip.sharedExpenses, type);
+            (trip.legs || []).forEach(leg => { total += expenseTotal(leg.expenses, type); });
+            return total;
+        }
+
+        function tripRouteStr(trip) {
+            const dests = (trip.legs || []).map(l => l.destination).filter(Boolean);
+            return dests.length > 0 ? dests.join(' → ') : 'No stops yet';
+        }
+
+        function fmt(n) {
+            return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        function esc(s) {
+            const el = document.createElement('span');
+            el.textContent = s || '';
+            return el.innerHTML;
+        }
+
+        function formatDateRange(start, end) {
+            if (!start && !end) return 'No dates';
+            const opts = { month: 'short', day: 'numeric' };
+            const s = start ? new Date(start + 'T00:00:00').toLocaleDateString('en-US', opts) : '?';
+            const e = end ? new Date(end + 'T00:00:00').toLocaleDateString('en-US', opts) : '?';
+            return s + ' – ' + e;
+        }
+
+        // Math expression evaluator for number fields (e.g., "10 + 7.50" → 17.50)
+        function evalMath(expr) {
+            if (typeof expr === 'number') return expr;
+            if (!expr || typeof expr !== 'string') return 0;
+            const sanitized = expr.replace(/[^0-9.+\-*/() ]/g, '');
+            if (!sanitized) return 0;
+            try { return Function('"use strict"; return (' + sanitized + ')')(); }
+            catch { return parseFloat(sanitized) || 0; }
+        }
+
+        function setupMathInputs() {
+            // On focus: show stored expression if available
+            document.addEventListener('focus', function(e) {
+                if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.dataset.wasNumber === '1') && e.target.dataset.expr) {
+                    e.target.type = 'text';
+                    e.target.dataset.wasNumber = '1';
+                    e.target.value = e.target.dataset.expr;
+                    e.target.select();
+                }
+            }, true);
+            // Allow typing math chars in number fields
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' && e.target.type === 'number' && ['+', '-', '*', '/'].includes(e.key)) {
+                    e.target.type = 'text';
+                    e.target.dataset.wasNumber = '1';
+                }
+            }, true);
+            // On blur: evaluate, store expression, show result
+            document.addEventListener('blur', function(e) {
+                if (e.target.tagName === 'INPUT') {
+                    const raw = e.target.value;
+                    const isText = e.target.dataset.wasNumber === '1';
+                    const isNumber = e.target.type === 'number';
+                    if ((isText || isNumber) && raw && /[+\-*/]/.test(raw)) {
+                        const result = Math.round(evalMath(raw) * 100) / 100;
+                        e.target.dataset.expr = raw;
+                        if (isText) e.target.type = 'number';
+                        delete e.target.dataset.wasNumber;
+                        e.target.value = result;
+                        e.target.dispatchEvent(new Event('input', { bubbles: true }));
+                        // Save expression to data model
+                        if (e.target.dataset.expKey) {
+                            saveExpr(e.target.dataset.expKey, raw);
+                        }
+                    } else if (isText) {
+                        const result = Math.round(evalMath(raw) * 100) / 100;
+                        e.target.type = 'number';
+                        delete e.target.dataset.wasNumber;
+                        e.target.value = result;
+                        // Clear expression if user typed a plain number
+                        if (e.target.dataset.expr && !/[+\-*/]/.test(raw)) {
+                            delete e.target.dataset.expr;
+                            if (e.target.dataset.expKey) saveExpr(e.target.dataset.expKey, '');
+                        }
+                        e.target.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            }, true);
+        }
+
+        // Save expression string into data model: key format "shared:tripId:catKey" or "leg:tripId:legId:catKey"
+        function saveExpr(key, expr) {
+            const parts = key.split(':');
+            const kind = parts[0];
+            const tripId = parts[1];
+            const trip = data.trips.find(t => t.id === tripId);
+            if (!trip) return;
+            let expenses;
+            if (kind === 'shared') {
+                expenses = trip.sharedExpenses;
+                const catKey = parts[2];
+                if (expenses && expenses[catKey]) expenses[catKey].expr = expr || undefined;
+            } else {
+                const legId = parts[2];
+                const catKey = parts[3];
+                const leg = (trip.legs || []).find(l => l.id === legId);
+                if (leg && leg.expenses && leg.expenses[catKey]) leg.expenses[catKey].expr = expr || undefined;
+            }
+            saveData();
+        }
+
+        // --- Rendering ---
+        function render() {
+            renderTrips();
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            const budget = data.annualBudget || 0;
+            let totalAct = 0;
+            const catTotals = {};
+            CATEGORIES.forEach(c => catTotals[c.key] = 0);
+
+            data.trips.forEach(trip => {
+                CATEGORIES.forEach(c => {
+                    const exp = (trip.sharedExpenses || {})[c.key] || {};
+                    catTotals[c.key] += parseFloat(exp.actual) || 0;
+                });
+                (trip.legs || []).forEach(leg => {
+                    CATEGORIES.forEach(c => {
+                        const exp = (leg.expenses || {})[c.key] || {};
+                        catTotals[c.key] += parseFloat(exp.actual) || 0;
+                    });
+                });
+            });
+
+            CATEGORIES.forEach(c => { totalAct += catTotals[c.key]; });
+
+            let totalPoints = 0;
+            let totalCredits = 0;
+            data.trips.forEach(trip => {
+                totalPoints += parseFloat(trip.pointsUsed) || 0;
+                totalCredits += parseFloat(trip.credits) || 0;
+            });
+            const totalOffset = totalPoints + totalCredits;
+
+            const oop = totalAct - totalOffset;
+            const remaining = budget - oop;
+            const pct = budget > 0 ? Math.min((oop / budget) * 100, 100) : 0;
+
+            document.getElementById('statBudget').textContent = fmt(budget);
+            document.getElementById('statActual').textContent = fmt(totalAct);
+
+            const statRemaining = document.getElementById('statRemaining');
+            statRemaining.textContent = fmt(remaining);
+            statRemaining.className = 'value ' + (remaining >= 0 ? 'positive' : 'negative');
+            document.getElementById('statRemainingPct').textContent = budget > 0 ? Math.round((remaining / budget) * 100) + '% of budget' : '';
+
+            document.getElementById('statPoints').textContent = fmt(totalOffset);
+            const statOOP = document.getElementById('statOOP');
+            statOOP.textContent = fmt(oop);
+            statOOP.className = 'value ' + (oop <= budget ? 'positive' : 'negative');
+
+            // Travel stats
+            let totalDays = 0;
+            data.trips.forEach(trip => {
+                if (trip.startDate && trip.endDate) {
+                    const ms = new Date(trip.endDate + 'T00:00:00') - new Date(trip.startDate + 'T00:00:00');
+                    if (ms > 0) totalDays += Math.round(ms / 86400000);
+                }
+            });
+            document.getElementById('statTrips').textContent = data.trips.length;
+            document.getElementById('statDays').textContent = totalDays;
+
+            document.getElementById('progressPct').textContent = Math.round(pct) + '%';
+            const bar = document.getElementById('progressBar');
+            bar.style.width = pct + '%';
+            bar.className = 'progress-bar-inner ' + (pct < 60 ? 'progress-green' : pct < 85 ? 'progress-orange' : 'progress-red');
+
+            const maxAct = Math.max(...CATEGORIES.map(c => catTotals[c.key]), 1);
+            document.getElementById('categoryBreakdown').innerHTML = CATEGORIES.map(c => {
+                const act = catTotals[c.key];
+                const barW = (act / maxAct) * 100;
+                return '<div class="breakdown-item">' +
+                    '<span class="breakdown-label">' + c.emoji + ' ' + c.label + '</span>' +
+                    '<div class="breakdown-bar-bg"><div class="breakdown-bar ' + c.barClass + '" style="width:' + barW + '%;"></div></div>' +
+                    '<span class="breakdown-amount">' + fmt(act) + '</span></div>';
+            }).join('');
+        }
+
+        function buildExpenseTable(idPrefix, expenses) {
+            let html = '<table class="expense-table"><thead><tr><th>Category</th><th>Amount</th></tr></thead><tbody>';
+            let tAct = 0;
+            CATEGORIES.forEach(c => {
+                const exp = (expenses || {})[c.key] || {};
+                const act = parseFloat(exp.actual) || 0;
+                const expr = exp.expr || '';
+                const expKey = idPrefix + ':' + c.key;
+                tAct += act;
+                html += '<tr><td><span class="cat-icon cat-' + c.cssClass + '">' + c.emoji + '</span> ' + c.label + '</td>' +
+                    '<td><input type="number" value="' + (act || '') + '" placeholder="0.00" step="0.01" min="0"' +
+                    (expr ? ' data-expr="' + esc(expr) + '"' : '') +
+                    ' data-exp-key="' + expKey + '"' +
+                    ' oninput="updateExp(\'' + idPrefix + '\',\'' + c.key + '\',\'actual\',this.value)"></td></tr>';
+            });
+            html += '</tbody><tfoot><tr><td>Subtotal</td><td style="text-align:right;">' + fmt(tAct) + '</td></tr></tfoot></table>';
+            return html;
+        }
+
+        function renderTrips() {
+            if (data.trips.length === 0) {
+                emptyState.style.display = '';
+                tripsGrid.innerHTML = '';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            // Preserve expanded state before re-render
+            const expandedTrips = new Set();
+            const expandedLegs = new Set();
+            document.querySelectorAll('.trip-card.expanded').forEach(el => expandedTrips.add(el.id));
+            document.querySelectorAll('.leg-card.expanded').forEach(el => expandedLegs.add(el.id));
+
+            tripsGrid.innerHTML = data.trips.map(trip => {
+                const totalAct = fullTripTotal(trip, 'actual');
+                const sharedAct = expenseTotal(trip.sharedExpenses, 'actual');
+                const points = parseFloat(trip.pointsUsed) || 0;
+                const credits = parseFloat(trip.credits) || 0;
+                const totalOffset = points + credits;
+                const dates = formatDateRange(trip.startDate, trip.endDate);
+                const route = tripRouteStr(trip);
+
+                let legsHTML = '';
+                (trip.legs || []).forEach((leg, li) => {
+                    const legAct = expenseTotal(leg.expenses, 'actual');
+                    const legDates = formatDateRange(leg.startDate, leg.endDate);
+                    legsHTML += '<div class="leg-card" id="leg-' + leg.id + '">' +
+                        '<div class="leg-header" onclick="toggleLeg(\'' + leg.id + '\')">' +
+                            '<div class="leg-info">' +
+                                '<span class="leg-number">' + (li + 1) + '</span>' +
+                                '<span class="leg-dest">' + esc(leg.destination) + '</span>' +
+                                '<span class="leg-dates">' + legDates + '</span>' +
+                            '</div>' +
+                            '<div class="leg-right">' +
+                                '<span class="leg-total">' + fmt(legAct) + '</span>' +
+                                '<span class="leg-chevron">▼</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="leg-body"><div class="leg-body-inner">' +
+                            '<div class="leg-form-row">' +
+                                '<div class="form-group"><label>Destination</label><input type="text" value="' + esc(leg.destination) + '" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'destination\',this.value)"></div>' +
+                                '<div class="form-group"><label>Start Date</label><input type="date" value="' + (leg.startDate || '') + '" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'startDate\',this.value)"></div>' +
+                                '<div class="form-group"><label>End Date</label><input type="date" value="' + (leg.endDate || '') + '" onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'endDate\',this.value)"></div>' +
+                            '</div>' +
+                            buildExpenseTable('leg:' + trip.id + ':' + leg.id, leg.expenses) +
+                            '<div class="notes-group"><label>📝 Stop Notes</label><textarea placeholder="Details for this stop..." onchange="updateLeg(\'' + trip.id + '\',\'' + leg.id + '\',\'notes\',this.value)">' + esc(leg.notes || '') + '</textarea></div>' +
+                            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;">' +
+                                '<div style="display:flex;gap:0.35rem;">' +
+                                    (li > 0 ? '<button class="btn-delete-leg" onclick="moveLeg(\'' + trip.id + '\',\'' + leg.id + '\',-1)" title="Move up">▲</button>' : '') +
+                                    (li < (trip.legs || []).length - 1 ? '<button class="btn-delete-leg" onclick="moveLeg(\'' + trip.id + '\',\'' + leg.id + '\',1)" title="Move down">▼</button>' : '') +
+                                '</div>' +
+                                '<button class="btn-delete-leg" onclick="deleteLeg(\'' + trip.id + '\',\'' + leg.id + '\')">Remove Stop</button>' +
+                            '</div>' +
+                        '</div></div></div>';
+                });
+
+                return '<div class="trip-card" id="trip-' + trip.id + '">' +
+                    '<div class="trip-card-header" onclick="toggleTrip(\'' + trip.id + '\')">' +
+                        '<div class="trip-info">' +
+                            '<div class="trip-icon">🌍</div>' +
+                            '<div class="trip-details">' +
+                                '<div class="trip-name">' + esc(trip.name) + '</div>' +
+                                '<div class="trip-meta">' + esc(trip.startLocation || '') + (trip.startLocation ? ' · ' : '') + dates + '</div>' +
+                                '<div class="trip-route">' + esc(route) + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="trip-right">' +
+                            '<div class="trip-amounts">' +
+                                '<div class="act">' + fmt(totalAct) + '</div>' +
+                            '</div>' +
+                            '<span class="badge badge-' + trip.status + '">' + trip.status + '</span>' +
+                            '<span class="chevron">▼</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="trip-card-body"><div class="trip-card-body-inner">' +
+                        '<div class="trip-form-row">' +
+                            '<div class="form-group"><label>Trip Name</label><input type="text" value="' + esc(trip.name) + '" onchange="updateTrip(\'' + trip.id + '\',\'name\',this.value)"></div>' +
+                            '<div class="form-group"><label>Starting From</label><input type="text" value="' + esc(trip.startLocation || '') + '" placeholder="e.g., Portland, OR" onchange="updateTrip(\'' + trip.id + '\',\'startLocation\',this.value)"></div>' +
+                            '<div class="form-group"><label>Returning To</label><input type="text" value="' + esc(trip.endLocation || '') + '" placeholder="e.g., Portland, OR" onchange="updateTrip(\'' + trip.id + '\',\'endLocation\',this.value)"></div>' +
+                        '</div>' +
+                        '<div class="trip-form-row">' +
+                            '<div class="form-group"><label>Start Date</label><input type="date" value="' + (trip.startDate || '') + '" onchange="updateTrip(\'' + trip.id + '\',\'startDate\',this.value)"></div>' +
+                            '<div class="form-group"><label>End Date</label><input type="date" value="' + (trip.endDate || '') + '" onchange="updateTrip(\'' + trip.id + '\',\'endDate\',this.value)"></div>' +
+                            '<div class="form-group"><label>Status</label><select onchange="updateTrip(\'' + trip.id + '\',\'status\',this.value)">' +
+                                '<option value="planned"' + (trip.status === 'planned' ? ' selected' : '') + '>Planned</option>' +
+                                '<option value="booked"' + (trip.status === 'booked' ? ' selected' : '') + '>Booked</option>' +
+                                '<option value="completed"' + (trip.status === 'completed' ? ' selected' : '') + '>Completed</option>' +
+                            '</select></div>' +
+                            '<div class="form-group"><label>Points Used ($)</label><input type="number" value="' + (trip.pointsUsed || '') + '" placeholder="0.00" step="0.01" min="0" style="width:120px;" onchange="updateTrip(\'' + trip.id + '\',\'pointsUsed\',parseFloat(this.value)||0)"></div>' +
+                            '<div class="form-group"><label>Credits ($)</label><input type="number" value="' + (trip.credits || '') + '" placeholder="0.00" step="0.01" min="0" style="width:120px;" onchange="updateTrip(\'' + trip.id + '\',\'credits\',parseFloat(this.value)||0)"></div>' +
+                        '</div>' +
+                        '<div class="section-header"><h3>🔗 Shared / Trip-Wide Expenses</h3><span class="section-total">' + fmt(sharedAct) + '</span></div>' +
+                        '<div class="math-hint">💡 Type math in any amount field (e.g., <b>10 + 7.50</b>) — it calculates on tab/click away</div>' +
+                        buildExpenseTable('shared:' + trip.id, trip.sharedExpenses) +
+                        '<div class="section-header"><h3>📍 Stops (' + (trip.legs || []).length + ')</h3></div>' +
+                        legsHTML +
+                        '<button class="btn-add-leg" onclick="openLegModal(\'' + trip.id + '\')">+ Add Stop</button>' +
+                        '<div class="grand-total">' +
+                            '<span class="gt-label">Trip Total</span>' +
+                            '<div class="gt-values">' +
+                                '<span>' + fmt(totalAct) + '</span>' +
+                                (totalOffset > 0 ? '<span style="color:var(--green);">Out-of-Pocket: ' + fmt(totalAct - totalOffset) + '</span>' : '') +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="notes-group"><label>📝 Trip Notes</label><textarea placeholder="Points used, upgrade details, general notes..." onchange="updateTrip(\'' + trip.id + '\',\'notes\',this.value)">' + esc(trip.notes || '') + '</textarea></div>' +
+                        '<div class="trip-actions"><button class="btn-delete" onclick="deleteTrip(\'' + trip.id + '\')">🗑️ Delete Trip</button></div>' +
+                    '</div></div></div>';
+            }).join('');
+
+            // Restore expanded state after re-render
+            expandedTrips.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('expanded');
+            });
+            expandedLegs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('expanded');
+            });
+        }
+
+        // --- Trip operations ---
+        function findTrip(id) { return data.trips.find(t => t.id === id); }
+        function findLeg(trip, legId) { return (trip.legs || []).find(l => l.id === legId); }
+
+        window.toggleTrip = function(id) {
+            document.getElementById('trip-' + id).classList.toggle('expanded');
+        };
+
+        window.toggleLeg = function(id) {
+            document.getElementById('leg-' + id).classList.toggle('expanded');
+        };
+
+        window.updateTrip = function(id, field, value) {
+            const trip = findTrip(id);
+            if (!trip) return;
+            trip[field] = value;
+            saveData();
+            render();
+        };
+
+        window.updateLeg = function(tripId, legId, field, value) {
+            const trip = findTrip(tripId);
+            if (!trip) return;
+            const leg = findLeg(trip, legId);
+            if (!leg) return;
+            leg[field] = value;
+            saveData();
+            render();
+        };
+
+        // Unified expense updater: prefix = "shared:tripId" or "leg:tripId:legId"
+        window.updateExp = function(prefix, category, type, value) {
+            const parts = prefix.split(':');
+            const kind = parts[0];
+            const tripId = parts[1];
+            const trip = findTrip(tripId);
+            if (!trip) return;
+
+            let expenses;
+            if (kind === 'shared') {
+                if (!trip.sharedExpenses) trip.sharedExpenses = emptyExpenses();
+                expenses = trip.sharedExpenses;
+            } else {
+                const legId = parts[2];
+                const leg = findLeg(trip, legId);
+                if (!leg) return;
+                if (!leg.expenses) leg.expenses = emptyExpenses();
+                expenses = leg.expenses;
+            }
+            if (!expenses[category]) expenses[category] = {};
+            expenses[category][type] = parseFloat(value) || 0;
+            saveData();
+            renderDashboard();
+        };
+
+        window.deleteTrip = function(id) {
+            if (!confirm('Delete this trip and all its stops? This cannot be undone.')) return;
+            data.trips = data.trips.filter(t => t.id !== id);
+            saveData();
+            render();
+        };
+
+        window.updateYearNotes = function(value) {
+            data.yearNotes = value;
+            saveData();
+        };
+
+        window.clearData = function() {
+            const choice = confirm('Clear all data for ' + currentYear + '?\n\nThis removes all trips, expenses, and notes for this year.\nClick Save File after to persist the change.');
+            if (!choice) return;
+            data = { annualBudget: 0, yearNotes: '', trips: [] };
+            allYears[currentYear] = data;
+            localStorage.removeItem(storageKey());
+            document.getElementById('embedded-data').textContent = JSON.stringify(allYears);
+            annualBudgetInput.value = '';
+            document.getElementById('yearNotes').value = '';
+            render();
+        };
+
+        window.deleteLeg = function(tripId, legId) {
+            if (!confirm('Remove this stop?')) return;
+            const trip = findTrip(tripId);
+            if (!trip) return;
+            trip.legs = (trip.legs || []).filter(l => l.id !== legId);
+            saveData();
+            render();
+        };
+
+        window.moveLeg = function(tripId, legId, direction) {
+            const trip = findTrip(tripId);
+            if (!trip || !trip.legs) return;
+            const idx = trip.legs.findIndex(l => l.id === legId);
+            if (idx < 0) return;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= trip.legs.length) return;
+            const temp = trip.legs[idx];
+            trip.legs[idx] = trip.legs[newIdx];
+            trip.legs[newIdx] = temp;
+            saveData();
+            render();
+        };
+
+        // --- Trip modal ---
+        window.openNewTripModal = function() {
+            document.getElementById('modalTripName').value = '';
+            document.getElementById('modalStartLoc').value = '';
+            document.getElementById('modalStartDate').value = '';
+            document.getElementById('modalEndDate').value = '';
+            document.getElementById('modalStatus').value = 'planned';
+            document.getElementById('modalFirstLeg').value = '';
+            document.getElementById('tripModal').classList.add('active');
+        };
+
+        window.closeTripModal = function() {
+            document.getElementById('tripModal').classList.remove('active');
+        };
+
+        window.saveNewTrip = function() {
+            const name = document.getElementById('modalTripName').value.trim();
+            const startLoc = document.getElementById('modalStartLoc').value.trim();
+            const firstDest = document.getElementById('modalFirstLeg').value.trim();
+            if (!name) { alert('Please enter a trip name.'); return; }
+
+            const legs = [];
+            if (firstDest) {
+                legs.push({
+                    id: 'leg_' + Date.now(),
+                    destination: firstDest,
+                    startDate: document.getElementById('modalStartDate').value,
+                    endDate: document.getElementById('modalEndDate').value,
+                    expenses: emptyExpenses(),
+                    notes: ''
+                });
+            }
+
+            data.trips.push({
+                id: 'trip_' + Date.now(),
+                name: name,
+                startLocation: startLoc,
+                endLocation: '',
+                startDate: document.getElementById('modalStartDate').value,
+                endDate: document.getElementById('modalEndDate').value,
+                status: document.getElementById('modalStatus').value,
+                sharedExpenses: emptyExpenses(),
+                pointsUsed: 0,
+                credits: 0,
+                notes: '',
+                legs: legs
+            });
+
+            saveData();
+            closeTripModal();
+            render();
+
+            setTimeout(() => {
+                const last = data.trips[data.trips.length - 1];
+                const el = document.getElementById('trip-' + last.id);
+                if (el) el.classList.add('expanded');
+            }, 50);
+        };
+
+        document.getElementById('tripModal').addEventListener('click', function(e) {
+            if (e.target === this) closeTripModal();
+        });
+
+        // --- Leg modal ---
+        window.openLegModal = function(tripId) {
+            pendingLegTripId = tripId;
+            document.getElementById('modalLegDest').value = '';
+            document.getElementById('modalLegStart').value = '';
+            document.getElementById('modalLegEnd').value = '';
+            document.getElementById('legModal').classList.add('active');
+        };
+
+        window.closeLegModal = function() {
+            document.getElementById('legModal').classList.remove('active');
+            pendingLegTripId = null;
+        };
+
+        window.saveNewLeg = function() {
+            const dest = document.getElementById('modalLegDest').value.trim();
+            if (!dest) { alert('Please enter a destination.'); return; }
+            const trip = findTrip(pendingLegTripId);
+            if (!trip) return;
+
+            const leg = {
+                id: 'leg_' + Date.now(),
+                destination: dest,
+                startDate: document.getElementById('modalLegStart').value,
+                endDate: document.getElementById('modalLegEnd').value,
+                expenses: emptyExpenses(),
+                notes: ''
+            };
+            if (!trip.legs) trip.legs = [];
+            trip.legs.push(leg);
+            saveData();
+            closeLegModal();
+            render();
+
+            setTimeout(() => {
+                const el = document.getElementById('leg-' + leg.id);
+                if (el) el.classList.add('expanded');
+                const tripEl = document.getElementById('trip-' + trip.id);
+                if (tripEl && !tripEl.classList.contains('expanded')) tripEl.classList.add('expanded');
+            }, 50);
+        };
+
+        document.getElementById('legModal').addEventListener('click', function(e) {
+            if (e.target === this) closeLegModal();
+        });
+
+        // --- Excel Export ---
+        window.exportToExcel = async function() {
+            if (typeof ExcelJS === 'undefined') {
+                alert('ExcelJS library not loaded. Please check your internet connection.');
+                return;
+            }
+
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'Travel Budget Planner';
+
+            const accentFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3A5C' } };
+            const surfaceFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2035' } };
+            const surface2Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF162A42' } };
+            const legFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC4BD97' } };
+            const legFont = { color: { argb: 'FF333333' }, size: 10 };
+            const legDimFont = { color: { argb: 'FF666666' }, size: 10 };
+            const legBdr = { style: 'thin', color: { argb: 'FF999999' } };
+            const legBorders = { top: legBdr, bottom: legBdr, left: legBdr, right: legBdr };
+            const headerFont = { bold: true, color: { argb: 'FFD4A853' }, size: 11 };
+            const titleFont = { bold: true, color: { argb: 'FFE8C97A' }, size: 14 };
+            const bodyFont = { color: { argb: 'FFF0ECE4' }, size: 10 };
+            const boldBody = { color: { argb: 'FFF0ECE4' }, size: 10, bold: true };
+            const dimFont = { color: { argb: 'FF8A9BB5' }, size: 10 };
+            const greenFont = { color: { argb: 'FF4ECDC4' }, size: 10, bold: true };
+            const redFont = { color: { argb: 'FFE07A5F' }, size: 10, bold: true };
+            const bdr = { style: 'thin', color: { argb: 'FF243D5C' } };
+            const borders = { top: bdr, bottom: bdr, left: bdr, right: bdr };
+            const cur = '$#,##0.00';
+
+            const catCount = CATEGORIES.length;
+            const colTotal = catCount + 2;
+            const colPoints = colTotal + 1;
+            const colCredits = colPoints + 1;
+            const colOOP = colCredits + 1;
+            const colNotes = colOOP + 1;
+            const lastCol = colNotes;
+
+            function getCatVal(expenses, key) {
+                const exp = (expenses || {})[key] || {};
+                return parseFloat(exp.actual) || 0;
+            }
+
+            function tripCatTotal(trip, key) {
+                let t = getCatVal(trip.sharedExpenses, key);
+                (trip.legs || []).forEach(leg => { t += getCatVal(leg.expenses, key); });
+                return t;
+            }
+
+            const years = Object.keys(allYears)
+                .filter(y => { const d = allYears[y]; return d && (d.annualBudget || (d.trips && d.trips.length)); })
+                .map(Number).sort((a, b) => a - b);
+
+            if (years.length === 0) { alert('No data to export.'); return; }
+
+            years.forEach(yr => {
+                const yd = allYears[yr];
+                if (!yd) return;
+                const trips = yd.trips || [];
+
+                const ws = wb.addWorksheet(String(yr));
+                ws.properties.outlineProperties = { summaryBelow: false };
+
+                ws.getColumn(1).width = 28;
+                for (let i = 0; i < catCount; i++) ws.getColumn(i + 2).width = 16;
+                ws.getColumn(colTotal).width = 14;
+                ws.getColumn(colPoints).width = 12;
+                ws.getColumn(colCredits).width = 12;
+                ws.getColumn(colOOP).width = 15;
+                ws.getColumn(colNotes).width = 40;
+
+                // Title
+                ws.mergeCells(1, 1, 1, lastCol);
+                const tc = ws.getCell(1, 1);
+                tc.value = 'Travel Budget ' + yr;
+                tc.font = titleFont; tc.fill = accentFill;
+                tc.alignment = { horizontal: 'center', vertical: 'middle' };
+                ws.getRow(1).height = 32;
+
+                const budget = yd.annualBudget || 0;
+                ws.getCell(2, 1).value = 'Budget: $' + budget.toLocaleString();
+                ws.getCell(2, 1).font = dimFont;
+
+                // Header row (row 4)
+                const headers = [''].concat(CATEGORIES.map(c => c.emoji + ' ' + c.label), ['Total', 'Points', 'Credits', 'Out-of-Pocket', 'Notes']);
+                for (let i = 0; i < headers.length; i++) {
+                    const cell = ws.getCell(4, i + 1);
+                    cell.value = headers[i];
+                    cell.font = headerFont; cell.fill = surface2Fill; cell.border = borders;
+                    cell.alignment = { horizontal: i === 0 || i === headers.length - 1 ? 'left' : 'right', wrapText: true };
+                }
+                ws.getRow(4).height = 30;
+
+                // Year summary (row 5)
+                let yearTotal = 0, yearPoints = 0, yearCredits = 0;
+                const yearCats = {};
+                CATEGORIES.forEach(c => yearCats[c.key] = 0);
+                trips.forEach(trip => {
+                    CATEGORIES.forEach(c => { yearCats[c.key] += tripCatTotal(trip, c.key); });
+                    yearPoints += parseFloat(trip.pointsUsed) || 0;
+                    yearCredits += parseFloat(trip.credits) || 0;
+                });
+                CATEGORIES.forEach(c => { yearTotal += yearCats[c.key]; });
+
+                ws.getCell(5, 1).value = 'YEAR TOTAL'; ws.getCell(5, 1).font = boldBody;
+                CATEGORIES.forEach((c, i) => { ws.getCell(5, i + 2).value = yearCats[c.key]; });
+                ws.getCell(5, colTotal).value = yearTotal;
+                ws.getCell(5, colPoints).value = yearPoints;
+                ws.getCell(5, colCredits).value = yearCredits;
+                ws.getCell(5, colOOP).value = yearTotal - yearPoints - yearCredits;
+                for (let i = 1; i <= lastCol; i++) {
+                    const cell = ws.getCell(5, i);
+                    if (!cell.font) cell.font = boldBody;
+                    cell.fill = surfaceFill; cell.border = borders;
+                    if (i > 1 && i < lastCol) cell.numFmt = cur;
+                }
+
+                // Remaining (row 6)
+                const yearOOP = yearTotal - yearPoints - yearCredits;
+                const remVal = budget - yearOOP;
+                ws.getCell(6, 1).value = 'REMAINING'; ws.getCell(6, 1).font = dimFont;
+                ws.getCell(6, colTotal).value = remVal;
+                ws.getCell(6, colTotal).font = remVal >= 0 ? greenFont : redFont;
+                ws.getCell(6, colTotal).numFmt = cur;
+
+                let row = 8;
+
+                trips.forEach(trip => {
+                    const tPts = parseFloat(trip.pointsUsed) || 0;
+                    const tCrd = parseFloat(trip.credits) || 0;
+                    const tTotal = fullTripTotal(trip, 'actual');
+
+                    // Trip row (bold parent)
+                    ws.getCell(row, 1).value = trip.name;
+                    CATEGORIES.forEach((c, i) => { ws.getCell(row, i + 2).value = tripCatTotal(trip, c.key); });
+                    ws.getCell(row, colTotal).value = tTotal;
+                    ws.getCell(row, colPoints).value = tPts;
+                    ws.getCell(row, colCredits).value = tCrd;
+                    ws.getCell(row, colOOP).value = tTotal - tPts - tCrd;
+                    ws.getCell(row, colNotes).value = trip.notes || '';
+                    for (let i = 1; i <= lastCol; i++) {
+                        const cell = ws.getCell(row, i);
+                        cell.font = boldBody; cell.fill = surfaceFill; cell.border = borders;
+                        if (i > 1 && i < lastCol) cell.numFmt = cur;
+                        if (i === lastCol) { cell.font = dimFont; cell.alignment = { wrapText: true }; }
+                    }
+                    row++;
+
+                    // Shared expenses (grouped)
+                    const sharedTotal = expenseTotal(trip.sharedExpenses, 'actual');
+                    if (sharedTotal > 0) {
+                        ws.getCell(row, 1).value = '  Shared / Trip-Wide';
+                        CATEGORIES.forEach((c, i) => { ws.getCell(row, i + 2).value = getCatVal(trip.sharedExpenses, c.key); });
+                        ws.getCell(row, colTotal).value = sharedTotal;
+                        for (let i = 1; i <= lastCol; i++) {
+                            const cell = ws.getCell(row, i);
+                            cell.font = i === 1 ? dimFont : bodyFont;
+                            cell.fill = surface2Fill; cell.border = borders;
+                            if (i > 1 && i < lastCol) cell.numFmt = cur;
+                        }
+                        ws.getRow(row).outlineLevel = 1;
+                        row++;
+                    }
+
+                    // Stop rows (grouped)
+                    (trip.legs || []).forEach((leg, li) => {
+                        const legTotal = expenseTotal(leg.expenses, 'actual');
+                        ws.getCell(row, 1).value = '  ' + (li + 1) + '. ' + leg.destination;
+                        CATEGORIES.forEach((c, i) => { ws.getCell(row, i + 2).value = getCatVal(leg.expenses, c.key); });
+                        ws.getCell(row, colTotal).value = legTotal;
+                        ws.getCell(row, colNotes).value = leg.notes || '';
+                        for (let i = 1; i <= lastCol; i++) {
+                            const cell = ws.getCell(row, i);
+                            cell.font = i === 1 ? legDimFont : legFont;
+                            cell.fill = legFill; cell.border = legBorders;
+                            if (i > 1 && i < lastCol) cell.numFmt = cur;
+                            if (i === lastCol) { cell.font = legDimFont; cell.alignment = { wrapText: true }; }
+                        }
+                        ws.getRow(row).outlineLevel = 1;
+                        row++;
+                    });
+
+                    row++;
+                });
+
+                ws.views = [{ state: 'frozen', xSplit: 1, ySplit: 4 }];
+            });
+
+            const buf = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Travel_Budget.xlsx';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+
+        init();
+    })();
+    </script>
+</body>
+</html>
