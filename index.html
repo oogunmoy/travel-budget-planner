@@ -493,6 +493,10 @@
         .leg-card.expanded .leg-body { max-height: 1200px; }
         .leg-body-inner { padding: 0 1rem 1rem; }
 
+        .leg-card[draggable="true"] { cursor: grab; }
+        .leg-card.dragging { opacity: 0.4; }
+        .leg-card.drag-over { border-top: 3px solid var(--accent); }
+
         .leg-form-row {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
@@ -779,6 +783,44 @@
             .progress-bar-outer { border: 1px solid #ddd; }
             .breakdown-bar-bg { border: 1px solid #ddd; }
         }
+        /* Light theme overrides */
+        body.light {
+            --bg: #f5f0e8;
+            --surface: #ffffff;
+            --surface2: #f0ebe3;
+            --surface3: #e8e2d8;
+            --border: #d4cfc5;
+            --text: #2c2418;
+            --text-dim: #7a7060;
+            --accent: #b8860b;
+            --accent-light: #d4a853;
+            --green: #2d8f7b;
+            --red: #c0503a;
+            --orange: #c98a0c;
+            --blue: #3a7ca5;
+        }
+
+        body.light header {
+            background: linear-gradient(135deg, #1a3a5c, #0f2035);
+        }
+
+        body.light .header-controls select,
+        body.light .header-controls button {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.25);
+            color: #fff;
+        }
+
+        body.light .trip-card-body input,
+        body.light .trip-card-body select {
+            background: var(--surface2);
+        }
+
+        body.light .notes-group textarea {
+            background: var(--surface2);
+        }
+
+        body.light .leg-card { background: var(--surface2); }
     </style>
 </head>
 <body>
@@ -790,6 +832,8 @@
             <button onclick="exportToExcel()">📊 Export to Excel</button>
             <button onclick="saveToFile()" title="Save data into this HTML file so it travels with it">💾 Save File</button>
             <button onclick="clearData()" title="Clear all data for the current year">🗑️ Clear Year</button>
+            <button onclick="toggleTheme()" id="themeBtn" title="Switch theme">☀️ Light</button>
+            <button onclick="importFromExcel()" title="Import trips from an Excel file">📥 Import</button>
         </div>
     </header>
 
@@ -987,6 +1031,8 @@
             loadData();
             render();
             setupMathInputs();
+            setupDragDrop();
+            loadTheme();
             window.addEventListener('beforeunload', function(e) {
                 if (isDirty) { e.preventDefault(); e.returnValue = ''; }
             });
@@ -1212,6 +1258,56 @@
             if (!sanitized) return 0;
             try { return Function('"use strict"; return (' + sanitized + ')')(); }
             catch { return parseFloat(sanitized) || 0; }
+        }
+
+        // Drag-and-drop for stop reordering
+        function setupDragDrop() {
+            let draggedLegId = null;
+            let draggedTripId = null;
+            document.addEventListener('dragstart', function(e) {
+                const card = e.target.closest('.leg-card[draggable]');
+                if (!card) return;
+                draggedLegId = card.dataset.legId;
+                draggedTripId = card.dataset.tripId;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            document.addEventListener('dragend', function(e) {
+                const card = e.target.closest('.leg-card[draggable]');
+                if (card) card.classList.remove('dragging');
+                document.querySelectorAll('.leg-card.drag-over').forEach(el => el.classList.remove('drag-over'));
+                draggedLegId = null;
+                draggedTripId = null;
+            });
+            document.addEventListener('dragover', function(e) {
+                const card = e.target.closest('.leg-card[draggable]');
+                if (!card || card.dataset.legId === draggedLegId || card.dataset.tripId !== draggedTripId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                document.querySelectorAll('.leg-card.drag-over').forEach(el => el.classList.remove('drag-over'));
+                card.classList.add('drag-over');
+            });
+            document.addEventListener('dragleave', function(e) {
+                const card = e.target.closest('.leg-card[draggable]');
+                if (card) card.classList.remove('drag-over');
+            });
+            document.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const targetCard = e.target.closest('.leg-card[draggable]');
+                if (!targetCard || !draggedLegId || targetCard.dataset.tripId !== draggedTripId) return;
+                targetCard.classList.remove('drag-over');
+                const targetLegId = targetCard.dataset.legId;
+                if (targetLegId === draggedLegId) return;
+                const trip = findTrip(draggedTripId);
+                if (!trip || !trip.legs) return;
+                const fromIdx = trip.legs.findIndex(l => l.id === draggedLegId);
+                const toIdx = trip.legs.findIndex(l => l.id === targetLegId);
+                if (fromIdx < 0 || toIdx < 0) return;
+                const moved = trip.legs.splice(fromIdx, 1)[0];
+                trip.legs.splice(toIdx, 0, moved);
+                saveData();
+                render();
+            });
         }
 
         function setupMathInputs() {
@@ -1445,7 +1541,7 @@
                 (trip.legs || []).forEach((leg, li) => {
                     const legAct = expenseTotal(leg.expenses, 'actual');
                     const legDates = formatDateRange(leg.startDate, leg.endDate);
-                    legsHTML += '<div class="leg-card" id="leg-' + leg.id + '">' +
+                    legsHTML += '<div class="leg-card" id="leg-' + leg.id + '" draggable="true" data-trip-id="' + trip.id + '" data-leg-id="' + leg.id + '">' +
                         '<div class="leg-header" onclick="toggleLeg(\'' + leg.id + '\')">' +
                             '<div class="leg-info">' +
                                 '<span class="leg-number">' + (li + 1) + '</span>' +
@@ -1712,6 +1808,22 @@
             saveData();
             render();
         };
+
+        // --- Theme toggle ---
+        window.toggleTheme = function() {
+            const isLight = document.body.classList.toggle('light');
+            const btn = document.getElementById('themeBtn');
+            btn.textContent = isLight ? '🌙 Dark' : '☀️ Light';
+            localStorage.setItem('travelBudget_theme', isLight ? 'light' : 'dark');
+        };
+
+        function loadTheme() {
+            const saved = localStorage.getItem('travelBudget_theme');
+            if (saved === 'light') {
+                document.body.classList.add('light');
+                document.getElementById('themeBtn').textContent = '🌙 Dark';
+            }
+        }
 
         // --- Trip modal ---
         window.openNewTripModal = function() {
@@ -2017,6 +2129,146 @@
             a.download = 'Travel_Budget.xlsx';
             a.click();
             URL.revokeObjectURL(url);
+        };
+
+        // --- Import from Excel ---
+        window.importFromExcel = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.xlsx,.xls';
+            input.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                    const buf = await file.arrayBuffer();
+                    const wb = new ExcelJS.Workbook();
+                    await wb.xlsx.load(buf);
+                    let imported = 0;
+
+                    wb.eachSheet(ws => {
+                        const name = ws.name.trim();
+                        const yr = parseInt(name);
+                        // Try to detect year-named sheets or any sheet with travel data
+                        const isYearSheet = yr >= 2000 && yr <= 2100;
+
+                        // Find header row (look for "Departure Date" or similar)
+                        let headerRow = 0;
+                        let colMap = {};
+                        ws.eachRow((row, rowNum) => {
+                            if (headerRow) return;
+                            const vals = [];
+                            row.eachCell((cell, colNum) => { vals[colNum] = String(cell.value || '').toLowerCase(); });
+                            const hasDepart = vals.some(v => v.includes('departure'));
+                            const hasTo = vals.some(v => v.includes('to'));
+                            if (hasDepart && hasTo) {
+                                headerRow = rowNum;
+                                vals.forEach((v, ci) => {
+                                    if (v.includes('departure')) colMap.departure = ci;
+                                    if (v.includes('return')) colMap.return = ci;
+                                    if (v === 'from') colMap.from = ci;
+                                    if (v === 'to') colMap.to = ci;
+                                    if (v.includes('day')) colMap.days = ci;
+                                    if (v === 'main' || v === 'transportation') colMap.flights = ci;
+                                    if (v.includes('auxil')) colMap.transfers = ci;
+                                    if (v.includes('lodging')) colMap.accommodation = ci;
+                                    if (v.includes('food')) colMap.food = ci;
+                                    if (v.includes('activit')) colMap.activities = ci;
+                                    if (v.includes('visa')) colMap.travelPrep = ci;
+                                    if (v.includes('miscel')) colMap.extras = ci;
+                                    if (v.includes('note')) colMap.notes = ci;
+                                    if (v.includes('additional')) colMap.extras = colMap.extras || ci;
+                                });
+                            }
+                        });
+
+                        if (!headerRow) return;
+                        const targetYear = isYearSheet ? yr : currentYear;
+
+                        if (!allYears[targetYear]) allYears[targetYear] = { annualBudget: 0, yearNotes: '', trips: [] };
+                        const yd = allYears[targetYear];
+
+                        // Read budget if present
+                        ws.eachRow((row, rowNum) => {
+                            if (rowNum >= headerRow) return;
+                            row.eachCell((cell, colNum) => {
+                                if (String(cell.value || '').toLowerCase().includes('budget')) {
+                                    // Look for number in adjacent cells
+                                    for (let c = colNum + 1; c <= colNum + 3; c++) {
+                                        const v = row.getCell(c).value;
+                                        if (typeof v === 'number' && v > 100) { yd.annualBudget = v; }
+                                    }
+                                }
+                            });
+                        });
+
+                        // Read data rows
+                        const getCellNum = (row, col) => { if (!col) return 0; const v = row.getCell(col).value; return typeof v === 'number' ? v : parseFloat(v) || 0; };
+                        const getCellStr = (row, col) => { if (!col) return ''; const v = row.getCell(col).value; return v instanceof Date ? '' : String(v || ''); };
+                        const getCellDate = (row, col) => {
+                            if (!col) return '';
+                            const v = row.getCell(col).value;
+                            if (v instanceof Date) return v.toISOString().split('T')[0];
+                            return '';
+                        };
+
+                        for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+                            const row = ws.getRow(r);
+                            const from = getCellStr(row, colMap.from);
+                            const to = getCellStr(row, colMap.to);
+                            if (!from && !to) continue;
+
+                            const expenses = emptyExpenses();
+                            if (colMap.flights) expenses.flights.actual = getCellNum(row, colMap.flights);
+                            if (colMap.transfers) expenses.transfers.actual = getCellNum(row, colMap.transfers);
+                            if (colMap.accommodation) expenses.accommodation.actual = getCellNum(row, colMap.accommodation);
+                            if (colMap.food) expenses.food.actual = getCellNum(row, colMap.food);
+                            if (colMap.activities) expenses.activities.actual = getCellNum(row, colMap.activities);
+                            if (colMap.travelPrep) expenses.travelPrep.actual = getCellNum(row, colMap.travelPrep);
+                            if (colMap.extras) expenses.extras.actual = getCellNum(row, colMap.extras);
+
+                            const tripName = (from && to) ? from + ' → ' + to : (to || from);
+                            const leg = {
+                                id: 'leg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                                destination: to || from,
+                                startDate: getCellDate(row, colMap.departure),
+                                endDate: getCellDate(row, colMap.return),
+                                expenses: expenses,
+                                notes: getCellStr(row, colMap.notes)
+                            };
+
+                            // Create a trip per row (since spreadsheet rows are independent legs)
+                            yd.trips.push({
+                                id: 'trip_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                                name: tripName,
+                                startLocation: from,
+                                endLocation: '',
+                                startDate: getCellDate(row, colMap.departure),
+                                endDate: getCellDate(row, colMap.return),
+                                status: 'completed',
+                                sharedExpenses: emptyExpenses(),
+                                pointsUsed: 0,
+                                credits: 0,
+                                notes: '',
+                                legs: [leg]
+                            });
+                            imported++;
+                        }
+                    });
+
+                    if (imported > 0) {
+                        data = allYears[currentYear] || data;
+                        saveData();
+                        loadData();
+                        render();
+                        alert('Imported ' + imported + ' trips! Review and consolidate multi-stop trips as needed.');
+                    } else {
+                        alert('No travel data found in the file. Make sure it has columns like Departure Date, From, To, etc.');
+                    }
+                } catch (err) {
+                    alert('Error reading file: ' + err.message);
+                }
+            };
+            input.click();
         };
 
         init();
