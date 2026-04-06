@@ -624,6 +624,32 @@
             margin-top: 0.5rem;
         }
 
+        /* Year-over-Year table */
+        .yoy-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .yoy-table th, .yoy-table td {
+            padding: 0.5rem 0.65rem;
+            border-bottom: 1px solid var(--border);
+            text-align: right;
+            font-size: 0.85rem;
+        }
+
+        .yoy-table th {
+            text-align: right;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .yoy-table th:first-child, .yoy-table td:first-child { text-align: left; }
+        .yoy-table tr:last-child td { border-bottom: none; }
+        .yoy-table .yoy-current { background: var(--surface2); font-weight: 600; }
+
         /* Grand total bar */
         .grand-total {
             display: flex;
@@ -736,6 +762,23 @@
             .budget-input-row input { width: 100%; }
             .grand-total .gt-values { flex-direction: column; gap: 0.25rem; }
         }
+
+        @media print {
+            body { background: #fff; color: #222; }
+            header { background: #1a3a5c; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header-controls button, .btn-add-trip, .btn-add-leg, .btn-delete, .btn-delete-leg,
+            .modal-overlay, #tripSearch, .math-hint { display: none !important; }
+            .card { background: #fff; border-color: #ccc; break-inside: avoid; }
+            .summary-stat { background: #f5f5f5; border: 1px solid #ddd; }
+            .trip-card { background: #fff; border-color: #ccc; }
+            .trip-card-body { max-height: none !important; overflow: visible !important; }
+            .leg-body { max-height: none !important; overflow: visible !important; }
+            .trip-card.expanded .trip-card-body, .leg-card.expanded .leg-body { max-height: none !important; }
+            .expense-table input { border: none; background: none; padding: 0; text-align: right; }
+            .notes-group textarea { border: 1px solid #ddd; background: #fafafa; }
+            .progress-bar-outer { border: 1px solid #ddd; }
+            .breakdown-bar-bg { border: 1px solid #ddd; }
+        }
     </style>
 </head>
 <body>
@@ -807,10 +850,19 @@
             </div>
         </div>
 
+        <!-- Year-over-Year Summary -->
+        <div class="card">
+            <h2><span class="icon" style="background: rgba(212,168,83,0.2);">📈</span> Year-over-Year</h2>
+            <div id="yoySummary"></div>
+        </div>
+
         <div class="card">
             <div class="trips-header">
                 <h2 style="margin-bottom:0;"><span class="icon" style="background: rgba(78,205,196,0.2);">🌍</span> Trips</h2>
                 <button class="btn-add-trip" onclick="openNewTripModal()">+ Add Trip</button>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <input type="text" id="tripSearch" placeholder="🔍 Search trips, destinations, notes..." style="width:100%;padding:0.6rem 0.75rem;font-size:0.9rem;" oninput="filterTrips(this.value)">
             </div>
             <div id="tripsContainer">
                 <div class="empty-state" id="emptyState">
@@ -1310,6 +1362,34 @@
                     '<div class="breakdown-bar-bg"><div class="breakdown-bar ' + c.barClass + '" style="width:' + barW + '%;"></div></div>' +
                     '<span class="breakdown-amount">' + fmt(act) + '</span></div>';
             }).join('');
+
+            // Year-over-Year summary
+            const yoyYears = Object.keys(allYears)
+                .filter(y => { const d = allYears[y]; return d && (d.annualBudget || (d.trips && d.trips.length)); })
+                .map(Number).sort((a, b) => a - b);
+
+            if (yoyYears.length > 1) {
+                let yoyHtml = '<table class="yoy-table"><thead><tr><th>Year</th><th>Budget</th><th>Spent</th><th>Points/Credits</th><th>OOP</th><th>Trips</th></tr></thead><tbody>';
+                yoyYears.forEach(yr => {
+                    const yd = allYears[yr];
+                    const trips = yd.trips || [];
+                    let spent = 0, pts = 0, crd = 0;
+                    trips.forEach(trip => {
+                        spent += fullTripTotal(trip, 'actual');
+                        pts += parseFloat(trip.pointsUsed) || 0;
+                        crd += parseFloat(trip.credits) || 0;
+                    });
+                    const oopVal = spent - pts - crd;
+                    const isCurrent = yr === currentYear;
+                    yoyHtml += '<tr' + (isCurrent ? ' class="yoy-current"' : '') + '>' +
+                        '<td>' + yr + '</td><td>' + fmt(yd.annualBudget || 0) + '</td><td>' + fmt(spent) + '</td>' +
+                        '<td>' + fmt(pts + crd) + '</td><td>' + fmt(oopVal) + '</td><td>' + trips.length + '</td></tr>';
+                });
+                yoyHtml += '</tbody></table>';
+                document.getElementById('yoySummary').innerHTML = yoyHtml;
+            } else {
+                document.getElementById('yoySummary').innerHTML = '<p style="color:var(--text-dim);font-size:0.9rem;">Add data to more than one year to see comparisons.</p>';
+            }
         }
 
         function buildExpenseTable(idPrefix, expenses, currency, rate) {
@@ -1446,7 +1526,10 @@
                             '</div>' +
                         '</div>' +
                         '<div class="notes-group"><label>📝 Trip Notes</label><textarea placeholder="Points used, upgrade details, general notes..." onchange="updateTrip(\'' + trip.id + '\',\'notes\',this.value)">' + esc(trip.notes || '') + '</textarea></div>' +
-                        '<div class="trip-actions"><button class="btn-delete" onclick="deleteTrip(\'' + trip.id + '\')">🗑️ Delete Trip</button></div>' +
+                        '<div class="trip-actions">' +
+                            '<button class="btn-secondary" style="padding:0.5rem 1rem;font-size:0.85rem;" onclick="duplicateTrip(\'' + trip.id + '\')">📋 Duplicate</button>' +
+                            '<button class="btn-delete" onclick="deleteTrip(\'' + trip.id + '\')">🗑️ Delete Trip</button>' +
+                        '</div>' +
                     '</div></div></div>';
             }).join('');
 
@@ -1487,6 +1570,13 @@
             const leg = findLeg(trip, legId);
             if (!leg) return;
             leg[field] = value;
+            // Auto-calculate trip dates from stops
+            if (field === 'startDate' || field === 'endDate') {
+                const starts = (trip.legs || []).map(l => l.startDate).filter(Boolean).sort();
+                const ends = (trip.legs || []).map(l => l.endDate).filter(Boolean).sort();
+                if (starts.length) trip.startDate = starts[0];
+                if (ends.length) trip.endDate = ends[ends.length - 1];
+            }
             saveData();
             render();
         };
@@ -1528,6 +1618,41 @@
             saveData();
         };
 
+        window.duplicateTrip = function(id) {
+            const src = findTrip(id);
+            if (!src) return;
+            const newTrip = {
+                id: 'trip_' + Date.now(),
+                name: src.name + ' (Copy)',
+                startLocation: src.startLocation || '',
+                endLocation: src.endLocation || '',
+                startDate: '',
+                endDate: '',
+                status: 'planned',
+                sharedExpenses: emptyExpenses(),
+                pointsUsed: 0,
+                credits: 0,
+                notes: '',
+                legs: (src.legs || []).map(leg => ({
+                    id: 'leg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                    destination: leg.destination,
+                    startDate: '',
+                    endDate: '',
+                    currency: leg.currency || '',
+                    exchangeRate: leg.exchangeRate || 0,
+                    expenses: emptyExpenses(),
+                    notes: ''
+                }))
+            };
+            data.trips.push(newTrip);
+            saveData();
+            render();
+            setTimeout(() => {
+                const el = document.getElementById('trip-' + newTrip.id);
+                if (el) { el.classList.add('expanded'); el.scrollIntoView({ behavior: 'smooth' }); }
+            }, 50);
+        };
+
         window.clearData = function() {
             const choice = confirm('Clear all data for ' + currentYear + '?\n\nThis removes all trips, expenses, and notes for this year.\nClick Save File after to persist the change.');
             if (!choice) return;
@@ -1538,6 +1663,31 @@
             annualBudgetInput.value = '';
             document.getElementById('yearNotes').value = '';
             render();
+        };
+
+        window.filterTrips = function(query) {
+            const q = query.toLowerCase().trim();
+            const cards = document.querySelectorAll('.trip-card');
+            if (!q) {
+                cards.forEach(c => c.style.display = '');
+                emptyState.style.display = data.trips.length === 0 ? '' : 'none';
+                return;
+            }
+            let visible = 0;
+            data.trips.forEach((trip, i) => {
+                const haystack = [
+                    trip.name, trip.startLocation, trip.endLocation, trip.notes,
+                    ...(trip.legs || []).flatMap(l => [l.destination, l.notes])
+                ].filter(Boolean).join(' ').toLowerCase();
+                const matches = haystack.includes(q);
+                const card = document.getElementById('trip-' + trip.id);
+                if (card) { card.style.display = matches ? '' : 'none'; }
+                if (matches) visible++;
+            });
+            emptyState.style.display = visible === 0 ? '' : 'none';
+            if (visible === 0) {
+                emptyState.querySelector('p').textContent = 'No trips match "' + query + '"';
+            }
         };
 
         window.deleteLeg = function(tripId, legId) {
