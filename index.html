@@ -821,6 +821,52 @@
         }
 
         body.light .leg-card { background: var(--surface2); }
+
+        /* Help modal */
+        .help-modal .modal {
+            width: 640px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .help-content h3 {
+            font-size: 0.95rem;
+            color: var(--accent-light);
+            margin: 1.25rem 0 0.5rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .help-content h3:first-child { margin-top: 0; }
+
+        .help-content p, .help-content li {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+
+        .help-content ul { padding-left: 1.25rem; margin: 0.35rem 0; }
+        .help-content li { margin-bottom: 0.25rem; }
+
+        .help-content code {
+            background: var(--surface2);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: var(--accent-light);
+        }
+
+        .help-content .tip {
+            background: var(--surface2);
+            border-left: 3px solid var(--accent);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0 6px 6px 0;
+            margin: 0.5rem 0;
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+
+        body.light .help-content h3 { color: var(--accent); }
     </style>
 </head>
 <body>
@@ -834,6 +880,7 @@
             <button onclick="clearData()" title="Clear all data for the current year">🗑️ Clear Year</button>
             <button onclick="toggleTheme()" id="themeBtn" title="Switch theme">☀️ Light</button>
             <button onclick="importFromExcel()" title="Import trips from an Excel file">📥 Import</button>
+            <button onclick="openHelp()" title="How to use this tool">❓ Help</button>
         </div>
     </header>
 
@@ -982,6 +1029,92 @@
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="closeLegModal()">Cancel</button>
                 <button class="btn-primary" onclick="saveNewLeg()">Add Stop</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay help-modal" id="helpModal">
+        <div class="modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                <h3 style="margin:0;font-size:1.1rem;">❓ How to Use</h3>
+                <button class="btn-secondary" style="padding:0.3rem 0.75rem;font-size:0.85rem;" onclick="closeHelp()">✕</button>
+            </div>
+            <div class="help-content">
+                <h3>🚀 Getting Started</h3>
+                <ul>
+                    <li>Set your <strong>Annual Travel Budget</strong> at the top of the dashboard</li>
+                    <li>Select a <strong>year</strong> from the dropdown (or add a new one)</li>
+                    <li>Click <strong>+ Add Trip</strong> to create your first trip</li>
+                </ul>
+
+                <h3>✈️ Adding Trips & Stops</h3>
+                <ul>
+                    <li>Each trip has a name, starting location, dates, and status (Planned / Booked / Completed)</li>
+                    <li>Click <strong>+ Add Stop</strong> inside a trip to add destinations</li>
+                    <li>Each stop has its own expenses, dates, currency, and notes</li>
+                    <li><strong>Reorder stops</strong> by dragging them or using the ▲/▼ buttons</li>
+                    <li><strong>Shared expenses</strong> (like a round-trip flight) go in the "Shared / Trip-Wide" section</li>
+                </ul>
+
+                <h3>🧮 Entering Expenses</h3>
+                <ul>
+                    <li>Type a number in any amount field and move on</li>
+                    <li><strong>Math expressions:</strong> type <code>10 + 7.50 + 15</code> and it calculates to <code>$33</code> when you tab away</li>
+                    <li>Click back into a field to <strong>see and edit the original formula</strong></li>
+                    <li>Works with <code>+</code> <code>-</code> <code>*</code> <code>/</code> (e.g., <code>150 * 3</code> for 3-night rates)</li>
+                </ul>
+
+                <h3>💱 Currency Converter</h3>
+                <ul>
+                    <li>Set a stop's <strong>Currency</strong> (e.g., EUR) and <strong>Rate</strong> (e.g., 0.92 = 1 USD buys 0.92 EUR)</li>
+                    <li>A column appears showing local currency amounts alongside USD</li>
+                    <li>All amounts are stored in USD — local amounts are display-only</li>
+                </ul>
+
+                <h3>💳 Points, Credits & Budget</h3>
+                <ul>
+                    <li><strong>Points Used ($):</strong> dollar value of points/miles used (e.g., AMEX points covering a flight)</li>
+                    <li><strong>Credits ($):</strong> refunds, shared bill reimbursements, etc.</li>
+                    <li><strong>Out-of-Pocket</strong> = Total Spent − Points − Credits</li>
+                    <li><strong>Remaining Budget</strong> = Budget − Out-of-Pocket (points/credits give you budget back)</li>
+                </ul>
+
+                <h3>💾 Saving Your Data</h3>
+                <ul>
+                    <li>Data <strong>auto-saves to your browser</strong> (localStorage) on every edit</li>
+                    <li>Click <strong>💾 Save File</strong> to bake data into the HTML file itself</li>
+                    <li>The saved file is portable — move it to OneDrive, email it, open on another device</li>
+                    <li>If you close without saving, the browser will warn you</li>
+                </ul>
+                <div class="tip">💡 Think of it like a Word doc — you edit, you save, the file has your work. Always click 💾 Save File before moving the file somewhere else.</div>
+
+                <h3>📊 Exporting to Excel</h3>
+                <ul>
+                    <li>Click <strong>📊 Export to Excel</strong> to download a workbook</li>
+                    <li>One sheet per year, categories as columns, trips as rows</li>
+                    <li>Stops are grouped under trips — expand/collapse with Excel's +/− buttons</li>
+                </ul>
+
+                <h3>📥 Importing from a Spreadsheet</h3>
+                <ul>
+                    <li>Click <strong>📥 Import</strong> and select an <code>.xlsx</code> file</li>
+                    <li>The tool maps columns like "Departure Date", "From", "To", "Lodging", "Food", etc.</li>
+                    <li>Each row becomes a trip — review and consolidate multi-stop trips after import</li>
+                </ul>
+
+                <h3>🔧 Other Features</h3>
+                <ul>
+                    <li><strong>🔍 Search:</strong> type in the search bar to filter trips by name, destination, or notes</li>
+                    <li><strong>📋 Duplicate:</strong> copy a trip's structure with zeroed amounts as a template</li>
+                    <li><strong>📈 Year-over-Year:</strong> compare spending across all years (below the dashboard)</li>
+                    <li><strong>☀️/🌙 Theme:</strong> toggle dark/light mode in the header</li>
+                    <li><strong>🖨️ Print:</strong> use Ctrl+P — the layout auto-adjusts for paper</li>
+                    <li><strong>🗑️ Clear Year:</strong> wipe all data for the selected year</li>
+                </ul>
+
+                <h3>🔒 Privacy</h3>
+                <p>Your data never leaves your device. No servers, no accounts, no tracking. The only external request is loading the ExcelJS library for spreadsheet features.</p>
             </div>
         </div>
     </div>
@@ -1808,6 +1941,17 @@
             saveData();
             render();
         };
+
+        // --- Help modal ---
+        window.openHelp = function() {
+            document.getElementById('helpModal').classList.add('active');
+        };
+        window.closeHelp = function() {
+            document.getElementById('helpModal').classList.remove('active');
+        };
+        document.getElementById('helpModal').addEventListener('click', function(e) {
+            if (e.target === this) closeHelp();
+        });
 
         // --- Theme toggle ---
         window.toggleTheme = function() {
